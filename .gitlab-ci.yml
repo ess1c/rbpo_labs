@@ -1,0 +1,56 @@
+stages:
+  - build
+  - test
+  - package
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  SSL_ENABLED: "false"
+
+cache:
+  paths:
+    - .m2/repository/
+
+build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - mvn clean compile -DskipTests
+  only:
+    - main
+    - master
+    - merge_requests
+
+test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - mvn test
+  only:
+    - main
+    - master
+    - merge_requests
+
+package:
+  stage: package
+  image: maven:3.9-eclipse-temurin-17
+  before_script:
+    - |
+      if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
+        echo "$KEYSTORE_BASE64" | base64 -d > src/main/resources/keystore.p12
+        echo "$TRUSTSTORE_BASE64" | base64 -d > src/main/resources/truststore.p12 || echo "Truststore not provided"
+        export SSL_ENABLED=true
+        export SSL_KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD"
+        export SSL_TRUSTSTORE_PASSWORD="$KEYSTORE_PASSWORD"
+      fi
+  script:
+    - mvn clean package -DskipTests
+  artifacts:
+    paths:
+      - target/*.jar
+    expire_in: 30 days
+  only:
+    - main
+    - master
+    - tags
+

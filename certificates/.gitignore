@@ -1,0 +1,12 @@
+*.pem
+*.key
+*.csr
+*.p12
+*.jks
+*.srl
+*.conf
+!root_ca_cert.pem
+!intermediate_ca_cert.pem
+!server_cert.pem
+!certificate_chain.pem
+
