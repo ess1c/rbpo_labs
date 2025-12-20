@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Создать объявление</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+        .header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-right: 10px;
+        }
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Создать объявление</h1>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <form id="createListingForm">
+        <div class="form-group">
+            <label for="title">Название *</label>
+            <input type="text" id="title" name="title" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Описание *</label>
+            <textarea id="description" name="description" required></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="price">Цена (₽) *</label>
+            <input type="number" id="price" name="price" step="0.01" min="0" required>
+        </div>
+
+        <div class="form-group">
+            <label for="categoryId">Категория *</label>
+            <select id="categoryId" name="categoryId" required>
+                <option value="">Выберите категорию</option>
+                <option th:each="category : ${categories}" 
+                        th:value="${category.id}" 
+                        th:text="${category.name}"></option>
+            </select>
+            <div id="category-loading" style="color: #999; font-size: 14px; margin-top: 5px; display: none;">Загрузка категорий...</div>
+        </div>
+
+        <div class="actions">
+            <a href="/" class="btn btn-secondary">Отмена</a>
+            <button type="submit" class="btn btn-primary">Создать объявление</button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Загрузить категории через API, если они не загрузились через сервер
+async function loadCategories() {
+    const select = document.getElementById('categoryId');
+    const loadingDiv = document.getElementById('category-loading');
+    
+    // Проверяем, есть ли уже категории в select
+    if (select.options.length <= 1) {
+        loadingDiv.style.display = 'block';
+        try {
+            const token = localStorage.getItem('accessToken');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            
+            const response = await fetch('/api/categories', {
+                headers: headers,
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const categories = await response.json();
+                if (categories && categories.length > 0) {
+                    // Очищаем select, оставляя только первый option
+                    while (select.options.length > 1) {
+                        select.remove(1);
+                    }
+                    
+                    categories.forEach(category => {
+                        const option = document.createElement('option');
+                        option.value = category.id;
+                        option.textContent = category.name;
+                        select.appendChild(option);
+                    });
+                    loadingDiv.style.display = 'none';
+                } else {
+                    loadingDiv.textContent = 'Категории не найдены';
+                    loadingDiv.style.color = '#dc3545';
+                }
+            } else {
+                loadingDiv.textContent = 'Ошибка загрузки категорий';
+                loadingDiv.style.color = '#dc3545';
+            }
+        } catch (error) {
+            console.error('Error loading categories:', error);
+            loadingDiv.textContent = 'Ошибка загрузки категорий: ' + error.message;
+            loadingDiv.style.color = '#dc3545';
+        }
+    } else {
+        loadingDiv.style.display = 'none';
+    }
+}
+
+// Загружаем категории при загрузке страницы
+document.addEventListener('DOMContentLoaded', loadCategories);
+
+document.getElementById('createListingForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        title: document.getElementById('title').value,
+        description: document.getElementById('description').value,
+        price: parseFloat(document.getElementById('price').value),
+        categoryId: parseInt(document.getElementById('categoryId').value)
+    };
+
+    try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+            showAlert('Ошибка: Вы не авторизованы. Пожалуйста, войдите в систему.', 'error');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+            return;
+        }
+        
+        const response = await fetch('/api/listings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            credentials: 'include',
+            body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+            const listing = await response.json();
+            showAlert('Объявление успешно создано!', 'success');
+            setTimeout(() => {
+                window.location.href = '/listings/' + listing.id;
+            }, 1500);
+        } else {
+            let errorMessage = 'Не удалось создать объявление';
+            try {
+                const error = await response.json();
+                errorMessage = error.message || errorMessage;
+            } catch (e) {
+                const text = await response.text();
+                if (text.includes('<!DOCTYPE')) {
+                    errorMessage = 'Ошибка аутентификации. Пожалуйста, войдите снова.';
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 2000);
+                }
+            }
+            showAlert('Ошибка: ' + errorMessage, 'error');
+        }
+    } catch (error) {
+        showAlert('Ошибка: ' + error.message, 'error');
+    }
+});
+
+function showAlert(message, type) {
+    const container = document.getElementById('alert-container');
+    container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    setTimeout(() => {
+        container.innerHTML = '';
+    }, 5000);
+}
+</script>
+</body>
+</html>
+
